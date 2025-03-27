@@ -1,32 +1,23 @@
-# Use an official Maven image as the build environment
-FROM maven:3.8.5-openjdk-17 AS builder
+# Use Eclipse Temurin JDK 21 as the base image for building
+FROM eclipse-temurin:21 AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy pom.xml and resolve dependencies with caching
-COPY pom.xml .
+# Copy Maven wrapper and project files
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+COPY src ./src
 
-# Proper cache mount format with explicit ID
-RUN --mount=type=cache,id=maven-cache,target=/root/.m2 mvn dependency:go-offline
+# Grant execution permissions to mvnw
+RUN chmod +x mvnw
 
-# Copy project source files
-COPY . .
-
-# Build the application with dependency caching
-RUN --mount=type=cache,id=maven-cache,target=/root/.m2 mvn clean install -DskipTests
+# Build the project
+RUN --mount=type=cache,id=maven-cache,target=/root/.m2 ./mvnw clean install -DskipTests
 
 # Use a minimal Java runtime for deployment
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:21-jre
 
-# Set working directory
 WORKDIR /app
+COPY --from=builder /app/target/tyremonitoring.jar app.jar
 
-# Copy the built JAR from the builder stage
-COPY --from=builder /app/target/*.jar app.jar
-
-# Expose the application port
-EXPOSE 8080
-
-# Start the Spring Boot application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "app.jar"]
