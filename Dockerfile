@@ -4,19 +4,19 @@ FROM maven:3.8.5-openjdk-17 AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy pom.xml and download dependencies
+# Copy pom.xml and resolve dependencies with caching
 COPY pom.xml .
 
-# Cache Maven dependencies using an explicit cache ID
+# Proper cache mount format with explicit ID
 RUN --mount=type=cache,id=maven-cache,target=/root/.m2 mvn dependency:go-offline
 
-# Copy the entire project source code
+# Copy project source files
 COPY . .
 
-# Build the project with dependency caching
+# Build the application with dependency caching
 RUN --mount=type=cache,id=maven-cache,target=/root/.m2 mvn clean install -DskipTests
 
-# Use a minimal Java runtime for the final image
+# Use a minimal Java runtime for deployment
 FROM openjdk:17-jdk-slim
 
 # Set working directory
@@ -25,8 +25,8 @@ WORKDIR /app
 # Copy the built JAR from the builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Expose the application's port
+# Expose the application port
 EXPOSE 8080
 
-# Run the Spring Boot application
+# Start the Spring Boot application
 ENTRYPOINT ["java", "-jar", "app.jar"]
